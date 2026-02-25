@@ -55,6 +55,16 @@ nav select{
 	border-radius: 3px;
 }
 
+nav input[type="number"]{
+	width: 5em;
+	border-radius: 3px;
+	background-color: #ffffff20;
+	color: #ffffff;
+	border: 1px solid #ffffff80;
+	padding: 2px 4px;
+	font-family: inherit;
+}
+
 nav label{
 	margin: 10px;
 	white-space: nowrap;
@@ -80,6 +90,7 @@ nav label{
 }
 
 #upload_environment{
+	grid-column: 1 / -1;
 	margin: 10px;
 	padding: 4px 10px;
 	border-radius: 3px;
