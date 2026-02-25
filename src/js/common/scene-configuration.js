@@ -1,7 +1,7 @@
 import * as CONSTANTS from "./constants.js";
 
 var foundationalConfiguration = {
-	"watermark_enable":['2'],
+	"watermark_enable":['0'],
 	"gui_enable":['1'],
 	"fullscreen_enable":['1']
 };
