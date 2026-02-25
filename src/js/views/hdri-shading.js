@@ -126,7 +126,40 @@ function initializeScene(){
 		camera.fov = Math.min(Math.max(camera.fov + event.deltaY/50, 1), 150);
 		camera.updateProjectionMatrix();
 	}
-	document.addEventListener( 'mousewheel', (e) =>{zoomHandler(e,camera)});
+
+	// Exposure control via mouse wheel and zoom
+	var exposureStep = 0.25;
+	var exposureMin = -16;
+	var exposureMax = 16;
+
+	window.addEventListener('wheel', (e) => {
+		var scrollExposure = document.getElementById('exposure_scroll_enable').checked;
+		if(scrollExposure){
+			e.preventDefault();
+			var current = parseFloat(SCENE_CONFIGURATION.getConfiguration()["environment_exposure"]);
+			var delta = e.deltaY > 0 ? -exposureStep : exposureStep;
+			var newVal = Math.min(exposureMax, Math.max(exposureMin, current + delta));
+			window.PBR1_CHANGE({'environment_exposure': newVal});
+		}else{
+			zoomHandler(e,camera);
+		}
+	}, {passive: false});
+
+	// Exposure control via arrow keys
+	window.addEventListener('keydown', (e) => {
+		if(!document.getElementById('exposure_keys_enable').checked) return;
+		if(e.key === 'ArrowUp' || e.key === 'ArrowRight'){
+			e.preventDefault();
+			var current = parseFloat(SCENE_CONFIGURATION.getConfiguration()["environment_exposure"]);
+			var newVal = Math.min(exposureMax, current + exposureStep);
+			window.PBR1_CHANGE({'environment_exposure': newVal});
+		}else if(e.key === 'ArrowDown' || e.key === 'ArrowLeft'){
+			e.preventDefault();
+			var current = parseFloat(SCENE_CONFIGURATION.getConfiguration()["environment_exposure"]);
+			var newVal = Math.max(exposureMin, current - exposureStep);
+			window.PBR1_CHANGE({'environment_exposure': newVal});
+		}
+	});
 
 	// Set up renderer
 	document.querySelector('#renderer_target').appendChild( renderer.domElement );
