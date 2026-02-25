@@ -154,7 +154,20 @@ function initializeScene(){
 	// Activate renderer
 	document.querySelector('#renderer_target').appendChild( renderer.domElement );
 	THREE_ACTIONS.resizeRenderingArea(camera,renderer);
-	
+
+	// Drag-and-drop local environment file
+	THREE_ACTIONS.setupEnvironmentFileDrop((texture) => {
+		previewPlane.material.map = texture;
+		previewPlane.scale.x = previewPlane.material.map.image.width / previewPlane.material.map.image.height;
+		previewPlane.scale.y = 1;
+		previewPlane.material.needsUpdate = true;
+		adjustAspectRatio();
+		texture.dispose();
+
+		var currentConfig = SCENE_CONFIGURATION.getConfiguration();
+		renderer.toneMappingExposure = Math.pow(2, currentConfig["environment_exposure"]);
+		renderer.toneMapping = CONSTANTS.toneMapping[currentConfig["environment_tonemapping"]];
+	});
 
 }
 

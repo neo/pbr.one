@@ -150,3 +150,34 @@ nav label{
 .watermark-large img{
 	width: 80px;
 }
+
+/* Drag-and-drop overlay */
+
+#drag-drop-overlay{
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100vw;
+	height: 100vh;
+	z-index: 100;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	background-color: rgba(0, 0, 0, 0.7);
+	border: 3px dashed rgba(255, 255, 255, 0.5);
+	box-sizing: border-box;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.2s ease;
+}
+
+#drag-drop-overlay.active{
+	opacity: 1;
+}
+
+#drag-drop-overlay p{
+	color: #ffffff;
+	font-size: 1.5em;
+	font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+	user-select: none;
+}

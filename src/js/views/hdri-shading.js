@@ -131,6 +131,16 @@ function initializeScene(){
 	// Set up renderer
 	document.querySelector('#renderer_target').appendChild( renderer.domElement );
 	THREE_ACTIONS.resizeRenderingArea(camera,renderer);
+
+	// Drag-and-drop local environment file
+	THREE_ACTIONS.setupEnvironmentFileDrop((texture) => {
+		var gen = new THREE.PMREMGenerator(renderer);
+		var envMap = gen.fromEquirectangular(texture).texture;
+		scene.environment = envMap;
+		scene.background = envMap;
+		texture.dispose();
+		gen.dispose();
+	});
 }
 
 function animate() {

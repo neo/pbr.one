@@ -3,6 +3,7 @@ import * as RGBE_LOADER from '../threejs/RGBELoader.js';
 import * as EXR_LOADER from '../threejs/EXRLoader.js';
 import * as MISC from "./misc.js";
 import * as LOADING from "./loading.js";
+import * as MESSAGE from "./message.js";
 
 /**
  * Updates the environment of a given ThreeJS-scene.
@@ -71,4 +72,84 @@ export function resizeRenderingArea(camera,renderer) {
 		camera.updateProjectionMatrix();
 		renderer.setSize(window.innerWidth, window.innerHeight);
 	}
+}
+
+/**
+ * Loads an environment texture from a local File object (e.g. from drag-and-drop).
+ * Creates a temporary blob URL, loads with the appropriate loader, then revokes the URL.
+ * @param {File} file - The local .exr or .hdr file
+ * @param {Function} onTextureLoaded - Callback receiving the loaded texture
+ */
+export function loadEnvironmentFromFile(file, onTextureLoaded){
+	var fileName = file.name;
+	var extension = fileName.split('.').pop().toLowerCase();
+	var blobUrl = URL.createObjectURL(file);
+
+	var loadingNote = new LOADING.LoadingNote(fileName, fileName, false);
+	loadingNote.start();
+
+	try{
+		var envLoader = pickEnvLoader(extension);
+		envLoader.load(blobUrl, (texture) => {
+			URL.revokeObjectURL(blobUrl);
+			loadingNote.finish();
+			onTextureLoaded(texture);
+		}, null, (error) => {
+			URL.revokeObjectURL(blobUrl);
+			loadingNote.fail(error);
+		});
+	}catch(error){
+		URL.revokeObjectURL(blobUrl);
+		loadingNote.fail(error);
+	}
+}
+
+/**
+ * Sets up drag-and-drop on the window for loading local .exr/.hdr environment files.
+ * Shows a visual overlay during drag and invokes the callback with the loaded texture on drop.
+ * @param {Function} onTextureLoaded - Callback receiving the loaded THREE.Texture
+ */
+export function setupEnvironmentFileDrop(onTextureLoaded){
+	var overlay = document.createElement('div');
+	overlay.id = 'drag-drop-overlay';
+	overlay.innerHTML = '<p>Drop .exr or .hdr file here</p>';
+	document.body.appendChild(overlay);
+
+	var dragCounter = 0;
+
+	window.addEventListener('dragenter', (e) => {
+		e.preventDefault();
+		dragCounter++;
+		overlay.classList.add('active');
+	});
+
+	window.addEventListener('dragleave', (e) => {
+		e.preventDefault();
+		dragCounter--;
+		if(dragCounter === 0){
+			overlay.classList.remove('active');
+		}
+	});
+
+	window.addEventListener('dragover', (e) => {
+		e.preventDefault();
+	});
+
+	window.addEventListener('drop', (e) => {
+		e.preventDefault();
+		dragCounter = 0;
+		overlay.classList.remove('active');
+
+		var file = e.dataTransfer.files[0];
+		if(!file) return;
+
+		var extension = file.name.split('.').pop().toLowerCase();
+		if(extension !== 'exr' && extension !== 'hdr'){
+			MESSAGE.newWarning(`Unsupported file type: .${extension}. Please drop an .exr or .hdr file.`);
+			return;
+		}
+
+		console.debug("Loading local environment file (name): ", file.name);
+		loadEnvironmentFromFile(file, onTextureLoaded);
+	});
 }
