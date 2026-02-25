@@ -133,13 +133,22 @@ function initializeScene(){
 	THREE_ACTIONS.resizeRenderingArea(camera,renderer);
 
 	// Drag-and-drop local environment file
-	THREE_ACTIONS.setupEnvironmentFileDrop((texture) => {
+	var handleLocalEnvFile = function(texture) {
 		var gen = new THREE.PMREMGenerator(renderer);
 		var envMap = gen.fromEquirectangular(texture).texture;
 		scene.environment = envMap;
 		scene.background = envMap;
 		texture.dispose();
 		gen.dispose();
+	};
+
+	THREE_ACTIONS.setupEnvironmentFileDrop(handleLocalEnvFile);
+
+	// Upload button file input
+	document.getElementById('environment_file_input').addEventListener('change', (e) => {
+		var file = e.target.files[0];
+		if(file) THREE_ACTIONS.loadEnvironmentFromFile(file, handleLocalEnvFile);
+		e.target.value = '';
 	});
 }
 

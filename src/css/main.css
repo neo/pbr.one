@@ -79,6 +79,22 @@ nav label{
 	cursor: pointer;
 }
 
+#upload_environment{
+	margin: 10px;
+	padding: 4px 10px;
+	border-radius: 3px;
+	border: 1px solid #ffffff80;
+	background-color: #ffffff20;
+	color: #ffffff;
+	cursor: pointer;
+	font-family: inherit;
+	font-size: 0.85em;
+}
+
+#upload_environment:hover{
+	background-color: #ffffff40;
+}
+
 #fullscreen-toggle{
 
 	/* Off by default, gets turned on by JS,

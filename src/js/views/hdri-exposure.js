@@ -156,7 +156,7 @@ function initializeScene(){
 	THREE_ACTIONS.resizeRenderingArea(camera,renderer);
 
 	// Drag-and-drop local environment file
-	THREE_ACTIONS.setupEnvironmentFileDrop((texture) => {
+	var handleLocalEnvFile = function(texture) {
 		previewPlane.material.map = texture;
 		previewPlane.scale.x = previewPlane.material.map.image.width / previewPlane.material.map.image.height;
 		previewPlane.scale.y = 1;
@@ -167,6 +167,15 @@ function initializeScene(){
 		var currentConfig = SCENE_CONFIGURATION.getConfiguration();
 		renderer.toneMappingExposure = Math.pow(2, currentConfig["environment_exposure"]);
 		renderer.toneMapping = CONSTANTS.toneMapping[currentConfig["environment_tonemapping"]];
+	};
+
+	THREE_ACTIONS.setupEnvironmentFileDrop(handleLocalEnvFile);
+
+	// Upload button file input
+	document.getElementById('environment_file_input').addEventListener('change', (e) => {
+		var file = e.target.files[0];
+		if(file) THREE_ACTIONS.loadEnvironmentFromFile(file, handleLocalEnvFile);
+		e.target.value = '';
 	});
 
 }

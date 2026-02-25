@@ -44,6 +44,9 @@
 						<option title="linear" value="linear">Linear</option>
 						
 					</select>
+					<label for="upload_environment">Local File</label>
+					<button id="upload_environment" onclick="document.getElementById('environment_file_input').click();">Upload Environment</button>
+					<input type="file" id="environment_file_input" accept=".exr,.hdr" style="display:none;">
 				</div>
 				<label id="gui_enable_label" for="gui_enable" title="gui_enable">hide</label>
 				<input 
