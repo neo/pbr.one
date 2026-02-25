@@ -56,7 +56,7 @@ nav select{
 }
 
 nav input[type="number"]{
-	width: 5em;
+	font-variant-numeric: tabular-nums;
 	border-radius: 3px;
 	background-color: #ffffff20;
 	color: #ffffff;
