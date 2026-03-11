@@ -75,8 +75,12 @@
 			<span class="message-area" id="messageArea"></span>
 			<div id="record_progress_bar"></div>
 			<div id="video_preview_container">
-				<button id="video_preview_close">&times;</button>
 				<video id="video_preview" controls loop autoplay></video>
+				<div id="video_preview_actions">
+					<button id="download_video_btn">video</button>
+					<button id="download_apng_btn">apng</button>
+					<button id="video_preview_close">close</button>
+				</div>
 			</div>
 		</main>
 		<script type="module" src="./js/views/hdri-shading.js"></script>

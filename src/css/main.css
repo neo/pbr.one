@@ -269,24 +269,30 @@ nav label{
 	max-height: 240px;
 }
 
-#video_preview_close{
-	position: absolute;
-	top: 4px;
-	right: 4px;
-	background: #00000080;
-	border: none;
-	color: white;
-	font-size: 1.2em;
-	cursor: pointer;
-	width: 24px;
-	height: 24px;
-	border-radius: 50%;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	z-index: 1;
-}
-
 #video_preview_close:hover{
 	background: #000000cc;
+}
+
+/* Video preview download buttons */
+
+#video_preview_actions{
+	display: flex;
+	gap: 4px;
+	padding: 4px;
+}
+
+#video_preview_actions button{
+	flex: 1;
+	padding: 4px 8px;
+	border-radius: 4px;
+	border: 1px solid #ffffff40;
+	background: #ffffff15;
+	color: white;
+	cursor: pointer;
+	font-size: 0.75em;
+	font-family: inherit;
+}
+
+#video_preview_actions button:hover{
+	background: #ffffff30;
 }

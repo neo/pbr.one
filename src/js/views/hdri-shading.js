@@ -7,6 +7,7 @@ import * as SCENE_CONFIGURATION from "../common/scene-configuration.js";
 import * as CONSTANTS from "../common/constants.js";
 import * as THREE_ACTIONS from "../common/three-actions.js";
 import * as MISC from "../common/misc.js";
+import * as APNG from "../common/apng-encoder.js";
 
 // VARIABLES AND CONSTANTS
 
@@ -18,6 +19,12 @@ var recordingFrameCount = 0;
 var recordingTotalFrames = 0;
 var autoPanWasOff = false;
 var recordingStartExposure = 0;
+var recordedFrames = [];
+var recordedVideoBlob = null;
+var recordingStartTime = 0;
+var lastFrameCaptureTime = 0;
+var apngFps = 24;
+var currentEnvBasename = 'recording';
 
 function preprocessSceneConfiguration(sceneConfiguration){
 
@@ -55,6 +62,7 @@ function updateScene(oldSceneConfiguration,newSceneConfiguration){
 		if( !SCENE_CONFIGURATION.equalAtKey(oldSceneConfiguration,newSceneConfiguration,"environment_index") || 
 			!SCENE_CONFIGURATION.equalAtKey(oldSceneConfiguration,newSceneConfiguration,"environment_url")){
 			var envFileUrl = newSceneConfiguration.environment_url[newSceneConfiguration.environment_index];
+			currentEnvBasename = envFileUrl.split('/').pop().replace(/\.[^.]+$/, '');
 			THREE_ACTIONS.updateSceneEnvironment(envFileUrl,scene,renderer);
 		}
 	}
@@ -193,13 +201,29 @@ function initializeScene(){
 	// Upload button file input
 	document.getElementById('environment_file_input').addEventListener('change', (e) => {
 		var file = e.target.files[0];
-		if(file) THREE_ACTIONS.loadEnvironmentFromFile(file, handleLocalEnvFile);
+		if(file) {
+			currentEnvBasename = file.name.replace(/\.[^.]+$/, '');
+			THREE_ACTIONS.loadEnvironmentFromFile(file, handleLocalEnvFile);
+		}
 		e.target.value = '';
+	});
+
+	// Track env basename from drag-and-drop
+	window.addEventListener('drop', (e) => {
+		var file = e.dataTransfer && e.dataTransfer.files[0];
+		if(file) {
+			var ext = file.name.split('.').pop().toLowerCase();
+			if(ext === 'exr' || ext === 'hdr') {
+				currentEnvBasename = file.name.replace(/\.[^.]+$/, '');
+			}
+		}
 	});
 
 	// Record video
 	document.getElementById('record_video_btn').addEventListener('click', toggleRecording);
 	document.getElementById('video_preview_close').addEventListener('click', closeVideoPreview);
+	document.getElementById('download_video_btn').addEventListener('click', downloadVideo);
+	document.getElementById('download_apng_btn').addEventListener('click', downloadAPNG);
 }
 
 function toggleRecording() {
@@ -218,7 +242,10 @@ function toggleRecording() {
 
 	isRecording = true;
 	recordedChunks = [];
+	recordedFrames = [];
 	recordingFrameCount = 0;
+	recordingStartTime = performance.now();
+	lastFrameCaptureTime = 0;
 	recordingTotalFrames = Math.round(3600 / controls.autoRotateSpeed) + 3;
 	recordingStartExposure = parseFloat(SCENE_CONFIGURATION.getConfiguration()["environment_exposure"]);
 	controls.enableDamping = false;
@@ -240,8 +267,8 @@ function toggleRecording() {
 	};
 
 	mediaRecorder.onstop = function() {
-		var blob = new Blob(recordedChunks, { type: 'video/webm' });
-		var url = URL.createObjectURL(blob);
+		recordedVideoBlob = new Blob(recordedChunks, { type: 'video/webm' });
+		var url = URL.createObjectURL(recordedVideoBlob);
 		var container = document.getElementById('video_preview_container');
 		var video = document.getElementById('video_preview');
 		video.src = url;
@@ -275,18 +302,58 @@ function stopRecording() {
 	}
 }
 
+function downloadVideo() {
+	if (!recordedVideoBlob) return;
+	var a = document.createElement('a');
+	a.href = URL.createObjectURL(recordedVideoBlob);
+	a.download = currentEnvBasename + '.webm';
+	a.click();
+	URL.revokeObjectURL(a.href);
+}
+
+function downloadAPNG() {
+	if (recordedFrames.length === 0) return;
+
+	// Convert data URLs to ArrayBuffers and encode APNG
+	var buffers = recordedFrames.map(function(dataUrl) {
+		var base64 = dataUrl.split(',')[1];
+		var binary = atob(base64);
+		var bytes = new Uint8Array(binary.length);
+		for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+		return bytes.buffer;
+	});
+
+	var apngBuffer = APNG.encodeAPNG(buffers, apngFps);
+	if (!apngBuffer) return;
+
+	var blob = new Blob([apngBuffer], { type: 'image/apng' });
+	var a = document.createElement('a');
+	a.href = URL.createObjectURL(blob);
+	a.download = currentEnvBasename + '.png';
+	a.click();
+	URL.revokeObjectURL(a.href);
+}
+
 function closeVideoPreview() {
 	var container = document.getElementById('video_preview_container');
 	var video = document.getElementById('video_preview');
 	if (video.src) URL.revokeObjectURL(video.src);
 	video.removeAttribute('src');
 	container.style.display = 'none';
+	recordedFrames = [];
+	recordedVideoBlob = null;
 }
 
 function updateRecordingProgress() {
 	if (!isRecording) return;
 
 	recordingFrameCount++;
+
+	var now = performance.now();
+	if (now - lastFrameCaptureTime >= 1000 / apngFps) {
+		recordedFrames.push(renderer.domElement.toDataURL('image/png'));
+		lastFrameCaptureTime = now;
+	}
 
 	var progress = Math.min(recordingFrameCount / recordingTotalFrames, 1);
 	document.getElementById('record_progress_bar').style.setProperty('--record-progress', (progress * 100) + '%');
@@ -311,8 +378,8 @@ function updateRecordingProgress() {
 function animate() {
     requestAnimationFrame( animate );
 	controls.update();
-	updateRecordingProgress();
     renderer.render( scene, camera );
+	updateRecordingProgress();
 }
 
 BASE.start(initializeScene,preprocessSceneConfiguration,updateScene,animate);
