@@ -208,3 +208,85 @@ nav label{
 	font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
 	user-select: none;
 }
+
+/* Record video button */
+
+#record_video_btn{
+	margin: 10px;
+	width: calc(100% - 20px);
+	padding: 4px 10px;
+	border-radius: 3px;
+	border: 1px solid #ffffff80;
+	background-color: #ffffff20;
+	color: #ffffff;
+	cursor: pointer;
+	font-family: inherit;
+	font-size: 0.85em;
+}
+
+#record_video_btn:hover{
+	background-color: #ffffff40;
+}
+
+/* Recording progress bar */
+
+#record_progress_bar{
+	display: none;
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 2px;
+	background-color: #ffffff30;
+	z-index: 10;
+	--record-progress: 0%;
+}
+
+#record_progress_bar::after{
+	content: '';
+	display: block;
+	height: 100%;
+	width: var(--record-progress);
+	background-color: #ffffff;
+}
+
+/* Video preview */
+
+#video_preview_container{
+	display: none;
+	position: absolute;
+	bottom: 20px;
+	right: 20px;
+	z-index: 10;
+	background-color: #000000cc;
+	border-radius: 8px;
+	overflow: hidden;
+}
+
+#video_preview_container video{
+	display: block;
+	max-width: 320px;
+	max-height: 240px;
+}
+
+#video_preview_close{
+	position: absolute;
+	top: 4px;
+	right: 4px;
+	background: #00000080;
+	border: none;
+	color: white;
+	font-size: 1.2em;
+	cursor: pointer;
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1;
+}
+
+#video_preview_close:hover{
+	background: #000000cc;
+}

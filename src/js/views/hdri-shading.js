@@ -11,6 +11,12 @@ import * as MISC from "../common/misc.js";
 // VARIABLES AND CONSTANTS
 
 var scene, renderer, camera, diffuseSphere, glossySphere, metallicSphere, controls;
+var isRecording = false;
+var mediaRecorder = null;
+var recordedChunks = [];
+var recordingFrameCount = 0;
+var recordingTotalFrames = 0;
+var autoPanWasOff = false;
 
 function preprocessSceneConfiguration(sceneConfiguration){
 
@@ -119,6 +125,7 @@ function initializeScene(){
 	controls.minDistance = controls.maxDistance = 2;
 	controls.enablePan = false;
 	controls.enableDamping = true;
+	controls.autoRotateSpeed = 12.0;
 	controls.listenToKeyEvents(window);
 
 	// Window resizing
@@ -188,11 +195,105 @@ function initializeScene(){
 		if(file) THREE_ACTIONS.loadEnvironmentFromFile(file, handleLocalEnvFile);
 		e.target.value = '';
 	});
+
+	// Record video
+	document.getElementById('record_video_btn').addEventListener('click', toggleRecording);
+	document.getElementById('video_preview_close').addEventListener('click', closeVideoPreview);
+}
+
+function toggleRecording() {
+	if (isRecording) {
+		stopRecording();
+		return;
+	}
+
+
+	// Enable auto pan if not already on
+	autoPanWasOff = !controls.autoRotate;
+	if (autoPanWasOff) {
+		window.PBR1_CHANGE({'auto_pan_enable': 1});
+		document.getElementById('auto_pan_enable').checked = true;
+	}
+
+	isRecording = true;
+	recordedChunks = [];
+	recordingFrameCount = 0;
+	recordingTotalFrames = Math.round(3600 / controls.autoRotateSpeed) + 3;
+	controls.enableDamping = false;
+
+	// Show progress bar
+	var progressBar = document.getElementById('record_progress_bar');
+	progressBar.style.display = 'block';
+	progressBar.style.setProperty('--record-progress', '0%');
+
+	// Hide any existing preview
+	document.getElementById('video_preview_container').style.display = 'none';
+
+	// Start MediaRecorder
+	var stream = renderer.domElement.captureStream();
+	mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=av1' });
+
+	mediaRecorder.ondataavailable = function(e) {
+		if (e.data.size > 0) recordedChunks.push(e.data);
+	};
+
+	mediaRecorder.onstop = function() {
+		var blob = new Blob(recordedChunks, { type: 'video/webm' });
+		var url = URL.createObjectURL(blob);
+		var container = document.getElementById('video_preview_container');
+		var video = document.getElementById('video_preview');
+		video.src = url;
+		container.style.display = 'block';
+	};
+
+	mediaRecorder.start();
+
+	document.getElementById('record_video_btn').textContent = 'Stop Recording';
+}
+
+function stopRecording() {
+	isRecording = false;
+	controls.enableDamping = true;
+	if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+		mediaRecorder.stop();
+	}
+	document.getElementById('record_progress_bar').style.display = 'none';
+	document.getElementById('record_video_btn').textContent = 'Record Video';
+
+	// Restore auto pan state
+	if (autoPanWasOff) {
+		window.PBR1_CHANGE({'auto_pan_enable': 0});
+		document.getElementById('auto_pan_enable').checked = false;
+		autoPanWasOff = false;
+	}
+}
+
+function closeVideoPreview() {
+	var container = document.getElementById('video_preview_container');
+	var video = document.getElementById('video_preview');
+	if (video.src) URL.revokeObjectURL(video.src);
+	video.removeAttribute('src');
+	container.style.display = 'none';
+}
+
+function updateRecordingProgress() {
+	if (!isRecording) return;
+
+	recordingFrameCount++;
+
+	var progress = Math.min(recordingFrameCount / recordingTotalFrames, 1);
+	document.getElementById('record_progress_bar').style.setProperty('--record-progress', (progress * 100) + '%');
+
+	// Stop before rendering the duplicate start frame
+	if (recordingFrameCount >= recordingTotalFrames) {
+		stopRecording();
+	}
 }
 
 function animate() {
     requestAnimationFrame( animate );
 	controls.update();
+	updateRecordingProgress();
     renderer.render( scene, camera );
 }
 

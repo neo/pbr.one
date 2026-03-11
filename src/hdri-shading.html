@@ -61,6 +61,7 @@
 						onchange="window.PBR1_CHANGE({'auto_pan_enable':this.checked ? 1 : 0});"
 					>
 				</div>
+				<button id="record_video_btn">Record Video</button>
 				<label id="gui_enable_label" for="gui_enable" title="gui_enable">hide</label>
 				<input 
 					checked="checked"
@@ -72,6 +73,11 @@
 			<button id="fullscreen-toggle" >⛶</button>
 			<a class="watermark watermark-off" target="_blank" href="https://pbr.one"><img src="./media/logo.png"></a>
 			<span class="message-area" id="messageArea"></span>
+			<div id="record_progress_bar"></div>
+			<div id="video_preview_container">
+				<button id="video_preview_close">&times;</button>
+				<video id="video_preview" controls loop autoplay></video>
+			</div>
 		</main>
 		<script type="module" src="./js/views/hdri-shading.js"></script>
 	</body>
