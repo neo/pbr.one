@@ -40,6 +40,9 @@ function updateScene(oldSceneConfiguration,newSceneConfiguration){
 	// Show spheres
 	scene.visible = Boolean(parseInt(newSceneConfiguration["spheres_enable"]));
 
+	// Auto pan
+	controls.autoRotate = Boolean(parseInt(newSceneConfiguration["auto_pan_enable"]));
+
 	// Set Environment
 	if(newSceneConfiguration.environment_url.length > 0){
 		if( !SCENE_CONFIGURATION.equalAtKey(oldSceneConfiguration,newSceneConfiguration,"environment_index") || 
@@ -67,7 +70,9 @@ function initializeScene(){
 		"environment_name": [],
 		"environment_index":0,
 
-		"spheres_accent_color": "116DD5" 
+		"spheres_accent_color": "116DD5",
+
+		"auto_pan_enable": 0
 	
 	});
 
