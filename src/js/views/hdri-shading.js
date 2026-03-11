@@ -17,6 +17,7 @@ var recordedChunks = [];
 var recordingFrameCount = 0;
 var recordingTotalFrames = 0;
 var autoPanWasOff = false;
+var recordingStartExposure = 0;
 
 function preprocessSceneConfiguration(sceneConfiguration){
 
@@ -219,6 +220,7 @@ function toggleRecording() {
 	recordedChunks = [];
 	recordingFrameCount = 0;
 	recordingTotalFrames = Math.round(3600 / controls.autoRotateSpeed) + 3;
+	recordingStartExposure = parseFloat(SCENE_CONFIGURATION.getConfiguration()["environment_exposure"]);
 	controls.enableDamping = false;
 
 	// Show progress bar
@@ -260,6 +262,11 @@ function stopRecording() {
 	document.getElementById('record_progress_bar').style.display = 'none';
 	document.getElementById('record_video_btn').textContent = 'Record Video';
 
+	// Restore original exposure
+	if (recordingStartExposure !== 0) {
+		window.PBR1_CHANGE({'environment_exposure': recordingStartExposure});
+	}
+
 	// Restore auto pan state
 	if (autoPanWasOff) {
 		window.PBR1_CHANGE({'auto_pan_enable': 0});
@@ -283,6 +290,17 @@ function updateRecordingProgress() {
 
 	var progress = Math.min(recordingFrameCount / recordingTotalFrames, 1);
 	document.getElementById('record_progress_bar').style.setProperty('--record-progress', (progress * 100) + '%');
+
+	// Tween exposure: original -> -1 * original -> original over the full recording
+	if (recordingStartExposure !== 0) {
+		var tweened;
+		if (progress < 0.5) {
+			tweened = recordingStartExposure + (-recordingStartExposure - recordingStartExposure) * (progress * 2);
+		} else {
+			tweened = -recordingStartExposure + (recordingStartExposure - (-recordingStartExposure)) * ((progress - 0.5) * 2);
+		}
+		window.PBR1_CHANGE({'environment_exposure': tweened});
+	}
 
 	// Stop before rendering the duplicate start frame
 	if (recordingFrameCount >= recordingTotalFrames) {
