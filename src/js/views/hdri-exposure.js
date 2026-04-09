@@ -154,7 +154,59 @@ function initializeScene(){
 	// Activate renderer
 	document.querySelector('#renderer_target').appendChild( renderer.domElement );
 	THREE_ACTIONS.resizeRenderingArea(camera,renderer);
-	
+
+	// Exposure control via mouse wheel
+	var exposureStep = 0.25;
+	var exposureMin = -16;
+	var exposureMax = 16;
+
+	window.addEventListener('wheel', (e) => {
+		if(!document.getElementById('exposure_scroll_enable').checked) return;
+		e.preventDefault();
+		var current = parseFloat(SCENE_CONFIGURATION.getConfiguration()["environment_exposure"]);
+		var delta = e.deltaY > 0 ? -exposureStep : exposureStep;
+		var newVal = Math.min(exposureMax, Math.max(exposureMin, current + delta));
+		window.PBR1_CHANGE({'environment_exposure': newVal});
+	}, {passive: false});
+
+	// Exposure control via arrow keys
+	window.addEventListener('keydown', (e) => {
+		if(!document.getElementById('exposure_keys_enable').checked) return;
+		if(e.key === 'ArrowUp' || e.key === 'ArrowRight'){
+			e.preventDefault();
+			var current = parseFloat(SCENE_CONFIGURATION.getConfiguration()["environment_exposure"]);
+			var newVal = Math.min(exposureMax, current + exposureStep);
+			window.PBR1_CHANGE({'environment_exposure': newVal});
+		}else if(e.key === 'ArrowDown' || e.key === 'ArrowLeft'){
+			e.preventDefault();
+			var current = parseFloat(SCENE_CONFIGURATION.getConfiguration()["environment_exposure"]);
+			var newVal = Math.max(exposureMin, current - exposureStep);
+			window.PBR1_CHANGE({'environment_exposure': newVal});
+		}
+	});
+
+	// Drag-and-drop local environment file
+	var handleLocalEnvFile = function(texture) {
+		previewPlane.material.map = texture;
+		previewPlane.scale.x = previewPlane.material.map.image.width / previewPlane.material.map.image.height;
+		previewPlane.scale.y = 1;
+		previewPlane.material.needsUpdate = true;
+		adjustAspectRatio();
+		texture.dispose();
+
+		var currentConfig = SCENE_CONFIGURATION.getConfiguration();
+		renderer.toneMappingExposure = Math.pow(2, currentConfig["environment_exposure"]);
+		renderer.toneMapping = CONSTANTS.toneMapping[currentConfig["environment_tonemapping"]];
+	};
+
+	THREE_ACTIONS.setupEnvironmentFileDrop(handleLocalEnvFile);
+
+	// Upload button file input
+	document.getElementById('environment_file_input').addEventListener('change', (e) => {
+		var file = e.target.files[0];
+		if(file) THREE_ACTIONS.loadEnvironmentFromFile(file, handleLocalEnvFile);
+		e.target.value = '';
+	});
 
 }
 
