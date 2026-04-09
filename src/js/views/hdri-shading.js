@@ -223,7 +223,6 @@ function initializeScene(){
 	document.getElementById('record_video_btn').addEventListener('click', toggleRecording);
 	document.getElementById('video_preview_close').addEventListener('click', closeVideoPreview);
 	document.getElementById('download_video_btn').addEventListener('click', downloadVideo);
-	document.getElementById('download_apng_btn').addEventListener('click', downloadAPNG);
 }
 
 function toggleRecording() {
