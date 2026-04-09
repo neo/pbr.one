@@ -21,8 +21,8 @@ export const toneMapping = {
  * Wrapper constant for ThreeJS's encoding values.
  */
 export const encoding = {
-	"sRGB": THREE.sRGBEncoding,
-	"linear": THREE.LinearEncoding
+	"sRGB": THREE.SRGBColorSpace,
+	"linear": THREE.LinearSRGBColorSpace
 }
 
 /**

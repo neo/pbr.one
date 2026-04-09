@@ -9,9 +9,10 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "vite": "^7.1.2"
+    "vite": "^7.3.2",
+    "vite-plugin-singlefile": "^2.3.2"
   },
   "dependencies": {
-    "three": "^0.179.1"
+    "three": "^0.183.2"
   }
 }
