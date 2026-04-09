@@ -1,6 +1,6 @@
-import * as THREE from "../threejs/three.module.js";
-import * as RGBE_LOADER from '../threejs/RGBELoader.js';
-import * as EXR_LOADER from '../threejs/EXRLoader.js';
+import * as THREE from "three";
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
 import * as MISC from "./misc.js";
 import * as LOADING from "./loading.js";
 
@@ -48,11 +48,11 @@ export function updateSceneEnvironment(url,scene,renderer){
 export function pickEnvLoader(extension){
 	switch (extension) {
 		case "hdr":
-			var envLoader = new RGBE_LOADER.RGBELoader();
+			var envLoader = new RGBELoader();
 			console.debug("Using RGBELoader (.hdr)");
 			break;
 		case "exr":
-			var envLoader = new EXR_LOADER.EXRLoader();
+			var envLoader = new EXRLoader();
 			console.debug("Using EXRLoader (.exr)");
 			break;
 		default:

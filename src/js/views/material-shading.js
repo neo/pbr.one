@@ -1,5 +1,5 @@
-import * as THREE from "../threejs/three.module.js";
-import * as ORBIT_CONTROLS from '../threejs/OrbitControls.js';
+import * as THREE from "three";
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import * as MISC from '../common/misc.js';
 import * as BASE from "../common/base.js";
 import * as SCENE_CONFIGURATION from "../common/scene-configuration.js";
@@ -286,7 +286,7 @@ function initializeScene(){
 	mesh.material.transparent = true;
 	scene.add(mesh);
 
-	controls = new ORBIT_CONTROLS.OrbitControls(camera, renderer.domElement)
+	controls = new OrbitControls(camera, renderer.domElement)
 	controls.enableDamping = true;
 	controls.listenToKeyEvents(window);
 
