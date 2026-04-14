@@ -64,6 +64,9 @@ function updateScene(oldSceneConfiguration,newSceneConfiguration){
 			var envFileUrl = newSceneConfiguration.environment_url[newSceneConfiguration.environment_index];
 			currentEnvBasename = envFileUrl.split('/').pop().replace(/\.[^.]+$/, '');
 			THREE_ACTIONS.updateSceneEnvironment(envFileUrl,scene,renderer);
+			// Reset
+			controls.reset();
+			window.PBR1_CHANGE({'environment_exposure': 0});
 		}
 	}
 
