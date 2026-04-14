@@ -7,7 +7,6 @@ import * as SCENE_CONFIGURATION from "../common/scene-configuration.js";
 import * as CONSTANTS from "../common/constants.js";
 import * as THREE_ACTIONS from "../common/three-actions.js";
 import * as MISC from "../common/misc.js";
-import * as APNG from "../common/apng-encoder.js";
 
 // VARIABLES AND CONSTANTS
 
@@ -19,11 +18,7 @@ var recordingFrameCount = 0;
 var recordingTotalFrames = 0;
 var autoPanWasOff = false;
 var recordingStartExposure = 0;
-var recordedFrames = [];
 var recordedVideoBlob = null;
-var recordingStartTime = 0;
-var lastFrameCaptureTime = 0;
-var apngFps = 24;
 var currentEnvBasename = 'recording';
 
 function preprocessSceneConfiguration(sceneConfiguration){
@@ -244,10 +239,7 @@ function toggleRecording() {
 
 	isRecording = true;
 	recordedChunks = [];
-	recordedFrames = [];
 	recordingFrameCount = 0;
-	recordingStartTime = performance.now();
-	lastFrameCaptureTime = 0;
 	recordingTotalFrames = Math.round(3600 / controls.autoRotateSpeed) + 3;
 	recordingStartExposure = parseFloat(SCENE_CONFIGURATION.getConfiguration()["environment_exposure"]);
 	controls.enableDamping = false;
@@ -313,51 +305,19 @@ function downloadVideo() {
 	URL.revokeObjectURL(a.href);
 }
 
-function downloadAPNG() {
-	if (recordedFrames.length === 0) return;
-
-	// Convert data URLs to ArrayBuffers and encode APNG
-	var buffers = recordedFrames.map(function(dataUrl) {
-		var base64 = dataUrl.split(',')[1];
-		var binary = atob(base64);
-		var bytes = new Uint8Array(binary.length);
-		for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-		return bytes.buffer;
-	});
-
-	var apngBuffer = APNG.encodeAPNG(buffers, apngFps);
-	if (!apngBuffer) return;
-
-	var blob = new Blob([apngBuffer], { type: 'image/apng' });
-	var a = document.createElement('a');
-	a.href = URL.createObjectURL(blob);
-	a.download = currentEnvBasename + '.png';
-	a.click();
-	URL.revokeObjectURL(a.href);
-}
-
 function closeVideoPreview() {
 	var container = document.getElementById('video_preview_container');
 	var video = document.getElementById('video_preview');
 	if (video.src) URL.revokeObjectURL(video.src);
 	video.removeAttribute('src');
 	container.style.display = 'none';
-	recordedFrames = [];
 	recordedVideoBlob = null;
 }
 
 function updateRecordingProgress() {
 	if (!isRecording) return;
 
-	recordingFrameCount++;
-
-	var now = performance.now();
-	if (now - lastFrameCaptureTime >= 1000 / apngFps) {
-		recordedFrames.push(renderer.domElement.toDataURL('image/png'));
-		lastFrameCaptureTime = now;
-	}
-
-	var progress = Math.min(recordingFrameCount / recordingTotalFrames, 1);
+	var progress = Math.min(++recordingFrameCount / recordingTotalFrames, 1);
 	document.getElementById('record_progress_bar').style.setProperty('--record-progress', (progress * 100) + '%');
 
 	// Tween exposure: original -> -1 * original -> original over the full recording
