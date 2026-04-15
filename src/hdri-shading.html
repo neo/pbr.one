@@ -22,10 +22,12 @@
 						name="environment_name"
 					>
 					</select>
+					<button id="upload_environment" onclick="document.getElementById('environment_file_input').click();">Upload Environment</button>
+					<input type="file" id="environment_file_input" accept=".exr,.hdr" style="display:none;">
 
 					<label id="environment_exposure_label" for="environment_exposure" title="environment_exposure">Exposure</label>
 					<input 
-						type="range"
+						type="number"
 						min="-16"
 						max="16"
 						value="0"
@@ -34,6 +36,18 @@
 						oninput="window.PBR1_CHANGE({'environment_exposure':this.value});"
 						ondblclick="window.PBR1_CHANGE({'environment_exposure':null},true);"
 					>
+					<label for="exposure_scroll_enable" title="exposure_scroll_enable">Wheel Exposure</label>
+					<input 
+						checked="checked"
+						type="checkbox"
+						id="exposure_scroll_enable"
+					>
+					<label for="exposure_keys_enable" title="exposure_keys_enable">Arrow Exposure</label>
+					<input 
+						checked="checked"
+						type="checkbox"
+						id="exposure_keys_enable"
+					>
 					<label for="spheres_enable" title="spheres_enable">Show Spheres</label>
 					<input 
 						checked="checked"
@@ -41,7 +55,14 @@
 						id="spheres_enable"
 						onchange="window.PBR1_CHANGE({'spheres_enable':this.checked ? 1 : 0});"
 					>
+					<label for="auto_pan_enable" title="auto_pan_enable">Auto Pan</label>
+					<input 
+						type="checkbox"
+						id="auto_pan_enable"
+						onchange="window.PBR1_CHANGE({'auto_pan_enable':this.checked ? 1 : 0});"
+					>
 				</div>
+				<button id="record_video_btn">Record Video</button>
 				<label id="gui_enable_label" for="gui_enable" title="gui_enable">hide</label>
 				<input 
 					checked="checked"
@@ -53,6 +74,12 @@
 			<button id="fullscreen-toggle" >⛶</button>
 			<a class="watermark watermark-off" target="_blank" href="https://pbr.one"><img src="./media/logo.png"></a>
 			<span class="message-area" id="messageArea"></span>
+			<div id="record_progress_bar"></div>
+			<div id="video_preview_container">
+				<button id="video_preview_close" title="Close preview">&times;</button>
+				<button id="download_video_btn" title="Download video">&#x2913;</button>
+				<video id="video_preview" controls loop autoplay></video>
+			</div>
 		</main>
 		<script type="importmap">
 			{

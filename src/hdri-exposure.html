@@ -21,18 +21,19 @@
 						name="environment_name"
 					>
 					</select>
+					<button id="upload_environment" onclick="document.getElementById('environment_file_input').click();">Upload Environment</button>
+					<input type="file" id="environment_file_input" accept=".exr,.hdr" style="display:none;">
 					
 					<label ondblclick="window.PBR1_CHANGE({'environment_exposure':null},true);" for="environment_exposure" title="environment_exposure">Exposure</label>
 					<input 
-						type="range"
+						type="number"
 						min="-16"
 						max="16"
 						value="0"
 						id="environment_exposure"
 						step="0.25"
 						ondblclick="window.PBR1_CHANGE({'environment_exposure':null},true);"
-						oninput="window.PBR1_CHANGE({'environment_exposure':this.value});",
-						onload="window.PBR1_CHANGE({'environment_exposure':this.value});"
+						oninput="window.PBR1_CHANGE({'environment_exposure':this.value});"
 					>
 					<label for="environment_tonemapping" title="environment_tonemapping">Tone Mapping</label>
 					<select 
@@ -44,6 +45,18 @@
 						<option title="linear" value="linear">Linear</option>
 						
 					</select>
+					<label for="exposure_scroll_enable" title="exposure_scroll_enable">Wheel Exposure</label>
+					<input 
+						checked="checked"
+						type="checkbox"
+						id="exposure_scroll_enable"
+					>
+					<label for="exposure_keys_enable" title="exposure_keys_enable">Arrow Exposure</label>
+					<input 
+						checked="checked"
+						type="checkbox"
+						id="exposure_keys_enable"
+					>
 				</div>
 				<label id="gui_enable_label" for="gui_enable" title="gui_enable">hide</label>
 				<input 
