@@ -21,6 +21,11 @@ var recordingStartExposure = 0;
 var recordedVideoBlob = null;
 var currentEnvBasename = 'recording';
 
+function reset() {
+	controls.reset();
+	window.PBR1_CHANGE({'environment_exposure': 0});
+}
+
 function preprocessSceneConfiguration(sceneConfiguration){
 
 	// More URLs than names
@@ -59,9 +64,7 @@ function updateScene(oldSceneConfiguration,newSceneConfiguration){
 			var envFileUrl = newSceneConfiguration.environment_url[newSceneConfiguration.environment_index];
 			currentEnvBasename = envFileUrl.split('/').pop().replace(/\.[^.]+$/, '');
 			THREE_ACTIONS.updateSceneEnvironment(envFileUrl,scene,renderer);
-			// Reset
-			controls.reset();
-			window.PBR1_CHANGE({'environment_exposure': 0});
+			reset();
 		}
 	}
 
@@ -94,7 +97,7 @@ function initializeScene(){
 
 	// camera
 	camera = new THREE.PerspectiveCamera( 80, window.innerWidth / window.innerHeight, 0.1, 1000 );
-	camera.position.x = 2;
+	camera.position.x = -2;
 	camera.position.y = 1;
 
 	// preview objects
@@ -192,6 +195,7 @@ function initializeScene(){
 		scene.background = envMap;
 		texture.dispose();
 		gen.dispose();
+		reset();
 	};
 
 	THREE_ACTIONS.setupEnvironmentFileDrop(handleLocalEnvFile);
