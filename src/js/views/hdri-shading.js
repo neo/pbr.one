@@ -124,7 +124,7 @@ function initializeScene(){
 	scene.add(metallicSphere);
 
 	// renderer
-	renderer = new THREE.WebGLRenderer();
+	renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 	renderer.outputEncoding = CONSTANTS.encoding.sRGB;
 
 	THREE_ACTIONS.updateSceneEnvironment("./media/env-placeholder.exr",scene,renderer);
@@ -225,6 +225,20 @@ function initializeScene(){
 	document.getElementById('record_video_btn').addEventListener('click', toggleRecording);
 	document.getElementById('video_preview_close').addEventListener('click', closeVideoPreview);
 	document.getElementById('download_video_btn').addEventListener('click', downloadVideo);
+// Take photo
+	document.getElementById('take_photo_btn').addEventListener('click', takePhoto);
+}
+
+function takePhoto() {
+	var formatter = new Intl.NumberFormat('en-US', { signDisplay: 'always', minimumFractionDigits: 1 });
+	renderer.domElement.toBlob((blob) => {
+		var a = document.createElement('a');
+		a.href = URL.createObjectURL(blob);
+		var ev = parseFloat(SCENE_CONFIGURATION.getConfiguration()["environment_exposure"])
+		a.download = currentEnvBasename + '-ev' + formatter.format(ev) + '.png';
+		a.click();
+		URL.revokeObjectURL(a.href);
+	})
 }
 
 function toggleRecording() {
