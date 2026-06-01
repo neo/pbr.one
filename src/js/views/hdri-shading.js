@@ -90,16 +90,16 @@ function initializeScene(){
 		new THREE.SphereGeometry(0.33,128,128), 
 		new THREE.MeshPhysicalMaterial({"color":parseInt("116DD5",16),"roughness":0}) 
 	);
-	glossySphere.position.z = 0;
+	glossySphere.position.z = -1;
 
 	metallicSphere = new THREE.Mesh(
-		new THREE.SphereGeometry(0.33,128,128), 
+		new THREE.SphereGeometry(0.5,128,128), 
 		new THREE.MeshPhysicalMaterial({"color":0xFFFFFF,"roughness":0,"metalness":1}) 
 	);
-	metallicSphere.position.z = -1;
+	metallicSphere.position.z = 0;
 
-	scene.add(diffuseSphere);
-	scene.add(glossySphere);
+	// scene.add(diffuseSphere);
+	// scene.add(glossySphere);
 	scene.add(metallicSphere);
 
 	// renderer
