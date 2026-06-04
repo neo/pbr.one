@@ -11,6 +11,39 @@ import * as MISC from "../common/misc.js";
 // VARIABLES AND CONSTANTS
 
 var scene, renderer, camera, diffuseSphere, glossySphere, metallicSphere, controls;
+var shadowLight, shadowGround;
+var shadowLightHelper, shadowCameraHelper;
+
+/**
+ * Approximates image-based-lighting shadows by pointing a shadow-casting DirectionalLight towards
+ * the brightest region of the HDRI. The light itself contributes no illumination (intensity 0) so
+ * the IBL look is preserved; only the shadow it projects onto the catcher ground is visible.
+ */
+function updateShadowLightFromEnvironment(texture){
+	var direction = THREE_ACTIONS.extractDominantLightDirection(texture);
+	if(!direction){
+		console.warn("IBL shadows: could not read HDRI pixel data, keeping previous light direction.");
+		return;
+	}
+
+	// Make sure the light always comes from above the horizon. If the brightest spot is low (or
+	// below) the horizon, the light would sit at/under the ground and cast no visible shadow.
+	if(direction.y < 0.25){
+		direction.y = 0.25;
+		direction.normalize();
+	}
+
+	console.debug("IBL shadows: dominant light direction",direction);
+
+	shadowLight.position.copy(direction.multiplyScalar(8));
+	shadowLight.target.position.set(0,0,0);
+	shadowLight.target.updateMatrixWorld();
+
+	// Keep debug helpers in sync with the new light position/orientation.
+	shadowLight.shadow.camera.updateProjectionMatrix();
+	if(shadowLightHelper){ shadowLightHelper.update(); }
+	if(shadowCameraHelper){ shadowCameraHelper.update(); }
+}
 
 function preprocessSceneConfiguration(sceneConfiguration){
 
@@ -45,7 +78,7 @@ function updateScene(oldSceneConfiguration,newSceneConfiguration){
 		if( !SCENE_CONFIGURATION.equalAtKey(oldSceneConfiguration,newSceneConfiguration,"environment_index") || 
 			!SCENE_CONFIGURATION.equalAtKey(oldSceneConfiguration,newSceneConfiguration,"environment_url")){
 			var envFileUrl = newSceneConfiguration.environment_url[newSceneConfiguration.environment_index];
-			THREE_ACTIONS.updateSceneEnvironment(envFileUrl,scene,renderer);
+			THREE_ACTIONS.updateSceneEnvironment(envFileUrl,scene,renderer,updateShadowLightFromEnvironment);
 		}
 	}
 
@@ -97,16 +130,54 @@ function initializeScene(){
 		new THREE.MeshPhysicalMaterial({"color":0xFFFFFF,"roughness":0,"metalness":1}) 
 	);
 	metallicSphere.position.z = 0;
+	metallicSphere.castShadow = true;
+	metallicSphere.receiveShadow = true;
 
 	// scene.add(diffuseSphere);
 	// scene.add(glossySphere);
 	scene.add(metallicSphere);
 
+	// IBL shadows: a shadow-casting light aimed at the HDRI's brightest spot plus a transparent
+	// catcher ground that only renders the shadow. The light contributes no illumination
+	// (intensity 0) so the IBL look is preserved; ShadowMaterial draws the shadow mask directly.
+	shadowLight = new THREE.DirectionalLight(0xffffff, 0);
+	shadowLight.castShadow = true;
+	shadowLight.shadow.mapSize.set(2048,2048);
+	shadowLight.shadow.camera.near = 0.1;
+	shadowLight.shadow.camera.far = 20;
+	shadowLight.shadow.camera.left = -3;
+	shadowLight.shadow.camera.right = 3;
+	shadowLight.shadow.camera.top = 3;
+	shadowLight.shadow.camera.bottom = -3;
+	shadowLight.shadow.bias = -0.0005;
+	shadowLight.shadow.normalBias = 0.02;
+	scene.add(shadowLight);
+	scene.add(shadowLight.target);
+
+	// DEBUG: visualize the directional light and its shadow camera frustum.
+	// The blue/yellow plane marks the light's position and direction; the line frustum shows the
+	// volume the shadow map covers. Remove these once shadows are confirmed.
+	// shadowLightHelper = new THREE.DirectionalLightHelper(shadowLight, 1, 0xffff00);
+	// scene.add(shadowLightHelper);
+	// shadowCameraHelper = new THREE.CameraHelper(shadowLight.shadow.camera);
+	// scene.add(shadowCameraHelper);
+
+	shadowGround = new THREE.Mesh(
+		new THREE.PlaneGeometry(20,20),
+		new THREE.ShadowMaterial({"opacity":0.4})
+	);
+	shadowGround.rotation.x = -Math.PI / 2;
+	shadowGround.position.y = -0.55;
+	shadowGround.receiveShadow = true;
+	scene.add(shadowGround);
+
 	// renderer
 	renderer = new THREE.WebGLRenderer();
 	renderer.outputEncoding = CONSTANTS.encoding.sRGB;
+	renderer.shadowMap.enabled = true;
+	renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-	THREE_ACTIONS.updateSceneEnvironment("./media/env-placeholder.exr",scene,renderer);
+	THREE_ACTIONS.updateSceneEnvironment("./media/env-placeholder.exr",scene,renderer,updateShadowLightFromEnvironment);
 
 	// orbit controls
 	controls = new OrbitControls(camera, renderer.domElement);
@@ -136,6 +207,8 @@ function initializeScene(){
 function animate() {
     requestAnimationFrame( animate );
 	controls.update();
+	if(shadowLightHelper){ shadowLightHelper.update(); }
+	if(shadowCameraHelper){ shadowCameraHelper.update(); }
     renderer.render( scene, camera );
 }
 
