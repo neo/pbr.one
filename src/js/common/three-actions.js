@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import * as MISC from "./misc.js";
 import * as LOADING from "./loading.js";
 import * as MESSAGE from "./message.js";
@@ -204,14 +205,60 @@ export function loadEnvironmentFromFile(file, onTextureLoaded){
 }
 
 /**
- * Sets up drag-and-drop on the window for loading local .exr/.hdr environment files.
- * Shows a visual overlay during drag and invokes the callback with the loaded texture on drop.
- * @param {Function} onTextureLoaded - Callback receiving the loaded THREE.Texture
+ * Loads a glTF/GLB 3D model from a remote URL.
+ * @param {string} url - The URL of the .glb/.gltf model
+ * @param {Function} onModelLoaded - Callback receiving the loaded glTF object
  */
-export function setupEnvironmentFileDrop(onTextureLoaded){
+export function loadModelFromUrl(url, onModelLoaded){
+	var fileName = MISC.filenameFromUrl(url);
+	var loadingNote = new LOADING.LoadingNote(fileName, url);
+	loadingNote.start();
+
+	var loader = new GLTFLoader();
+	loader.load(url, (gltf) => {
+		loadingNote.finish();
+		onModelLoaded(gltf);
+	}, null, (error) => {
+		loadingNote.fail(error);
+	});
+}
+
+/**
+ * Loads a glTF/GLB 3D model from a local File object (e.g. from drag-and-drop).
+ * Creates a temporary blob URL, loads the model, then revokes the URL.
+ * @param {File} file - The local .glb/.gltf file
+ * @param {Function} onModelLoaded - Callback receiving the loaded glTF object
+ */
+export function loadModelFromFile(file, onModelLoaded){
+	var fileName = file.name;
+	var blobUrl = URL.createObjectURL(file);
+
+	var loadingNote = new LOADING.LoadingNote(fileName, fileName, false);
+	loadingNote.start();
+
+	var loader = new GLTFLoader();
+	loader.load(blobUrl, (gltf) => {
+		URL.revokeObjectURL(blobUrl);
+		loadingNote.finish();
+		onModelLoaded(gltf);
+	}, null, (error) => {
+		URL.revokeObjectURL(blobUrl);
+		loadingNote.fail(error);
+	});
+}
+
+/**
+ * Sets up drag-and-drop on the window for loading local .exr/.hdr environment files and
+ * .glb/.gltf 3D models.
+ * Shows a visual overlay during drag and routes the dropped file to the matching callback
+ * based on its file extension.
+ * @param {Function} onTextureLoaded - Callback receiving the loaded THREE.Texture
+ * @param {Function} onModelLoaded - Callback receiving a loaded glTF object
+ */
+export function setupEnvironmentFileDrop(onTextureLoaded, onModelLoaded){
 	var overlay = document.createElement('div');
 	overlay.id = 'drag-drop-overlay';
-	overlay.innerHTML = '<p>Drop .exr or .hdr file here</p>';
+	overlay.innerHTML = '<p>Drop .exr / .hdr environment or .glb / .gltf model here</p>';
 	document.body.appendChild(overlay);
 
 	var dragCounter = 0;
@@ -243,12 +290,19 @@ export function setupEnvironmentFileDrop(onTextureLoaded){
 		if(!file) return;
 
 		var extension = file.name.split('.').pop().toLowerCase();
-		if(extension !== 'exr' && extension !== 'hdr'){
-			MESSAGE.newWarning(`Unsupported file type: .${extension}. Please drop an .exr or .hdr file.`);
+
+		if(extension === 'exr' || extension === 'hdr'){
+			console.debug("Loading local environment file (name): ", file.name);
+			loadEnvironmentFromFile(file, onTextureLoaded);
 			return;
 		}
 
-		console.debug("Loading local environment file (name): ", file.name);
-		loadEnvironmentFromFile(file, onTextureLoaded);
+		if(extension === 'glb' || extension === 'gltf'){
+			console.debug("Loading local model file (name): ", file.name);
+			loadModelFromFile(file, onModelLoaded);
+			return;
+		}
+
+		MESSAGE.newWarning(`Unsupported file type: .${extension}. Please drop an .exr, .hdr, .glb or .gltf file.`);
 	});
 }

@@ -1,6 +1,7 @@
 // IMPORTS
 import * as THREE from "three";
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import * as MESSAGE from '../common/message.js';
 import * as BASE from "../common/base.js";
 import * as SCENE_CONFIGURATION from "../common/scene-configuration.js";
@@ -14,6 +15,11 @@ var scene, renderer, camera, diffuseSphere, glossySphere, metallicSphere, contro
 
 var shadowLight, shadowGround;
 var shadowLightHelper, shadowCameraHelper;
+
+var currentModel = null;
+var transformControls = null;
+var lastUniformScale = 1;
+const DEFAULT_MODEL_URL = "media/BoomBox.glb";
 
 /**
  * Approximates image-based-lighting shadows by pointing a shadow-casting DirectionalLight towards
@@ -59,6 +65,68 @@ var currentEnvBasename = 'recording';
 function reset() {
 	controls.reset();
 	window.PBR1_CHANGE({'environment_exposure': 0});
+}
+
+/**
+ * Places a loaded glTF model in the scene, replacing any previous one. The model is added at its
+ * native position and scale; the shadow-catcher ground is dropped to the model's lowest point so
+ * its shadow lines up. All meshes are configured to cast and receive shadows.
+ */
+function placeModel(gltf){
+	if(currentModel){
+		if(transformControls){ transformControls.detach(); }
+		scene.remove(currentModel);
+	}
+
+	var model = gltf.scene || gltf.scenes[0];
+
+	model.traverse((child) => {
+		if(child.isMesh){
+			child.castShadow = true;
+			child.receiveShadow = true;
+		}
+	});
+
+	currentModel = model;
+	scene.add(model);
+
+	lastUniformScale = model.scale.x;
+
+	// Move the shadow-catcher ground to the bottom of the model.
+	updateShadowGroundToModel();
+
+	if(transformControls){ transformControls.attach(model); }
+}
+
+/**
+ * Keeps the model's scale uniform (proportional) when the user drags the transform scale handle,
+ * then realigns the shadow-catcher ground with the model.
+ */
+function onModelTransformChange(){
+	if(currentModel){
+		// TransformControls scales each axis independently; pick the axis that changed the most
+		// from the last uniform value and apply it to all three so proportions are preserved.
+		var s = currentModel.scale;
+		var dx = Math.abs(s.x - lastUniformScale);
+		var dy = Math.abs(s.y - lastUniformScale);
+		var dz = Math.abs(s.z - lastUniformScale);
+		var uniform = dx >= dy && dx >= dz ? s.x : (dy >= dz ? s.y : s.z);
+		s.setScalar(uniform);
+		lastUniformScale = uniform;
+	}
+	updateShadowGroundToModel();
+}
+
+/**
+ * Aligns the shadow-catcher ground with the current model: it sits under the model's lowest point
+ * and follows the model horizontally, so the projected shadow stays anchored to the model's base.
+ */
+function updateShadowGroundToModel(){
+	if(!currentModel || !shadowGround){ return; }
+	var box = new THREE.Box3().setFromObject(currentModel);
+	shadowGround.position.x = currentModel.position.x;
+	shadowGround.position.z = currentModel.position.z;
+	shadowGround.position.y = box.min.y;
 }
 
 function preprocessSceneConfiguration(sceneConfiguration){
@@ -153,12 +221,10 @@ function initializeScene(){
 		new THREE.MeshPhysicalMaterial({"color":0xFFFFFF,"roughness":0,"metalness":1}) 
 	);
 	metallicSphere.position.z = 0;
-	metallicSphere.castShadow = true;
-	metallicSphere.receiveShadow = true;
 
 	// scene.add(diffuseSphere);
 	// scene.add(glossySphere);
-	scene.add(metallicSphere);
+	// scene.add(metallicSphere);
 
 	// IBL shadows: a shadow-casting light aimed at the HDRI's brightest spot plus a transparent
 	// catcher ground that only renders the shadow. The light contributes no illumination
@@ -194,6 +260,9 @@ function initializeScene(){
 	shadowGround.receiveShadow = true;
 	scene.add(shadowGround);
 
+	// Default 3D model. Loaded from a hosted URL until the user drops in their own.
+	THREE_ACTIONS.loadModelFromUrl(DEFAULT_MODEL_URL, placeModel);
+
 	// renderer
 	renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 	renderer.outputEncoding = CONSTANTS.encoding.sRGB;
@@ -210,6 +279,23 @@ function initializeScene(){
 	controls.enableDamping = true;
 	controls.autoRotateSpeed = 12.0;
 	controls.listenToKeyEvents(window);
+
+	// DEBUG: transform handles to move/rotate/scale the model.
+	// Switch modes with the W (translate), E (rotate) and R (scale) keys.
+	transformControls = new TransformControls(camera, renderer.domElement);
+	transformControls.addEventListener('dragging-changed', (e) => {
+		controls.enabled = !e.value;
+	});
+	transformControls.addEventListener('objectChange', onModelTransformChange);
+	window.addEventListener('keydown', (e) => {
+		switch(e.key.toLowerCase()){
+			case 'w': transformControls.setMode('translate'); break;
+			case 'e': transformControls.setMode('rotate'); break;
+			case 'r': transformControls.setMode('scale'); break;
+		}
+	});
+	scene.add(transformControls.getHelper());
+	if(currentModel){ transformControls.attach(currentModel); }
 
 	// Window resizing
 	window.addEventListener('resize', (e) => { THREE_ACTIONS.resizeRenderingArea(camera,renderer)}, false);
@@ -271,7 +357,7 @@ function initializeScene(){
 		reset();
 	};
 
-	THREE_ACTIONS.setupEnvironmentFileDrop(handleLocalEnvFile);
+	THREE_ACTIONS.setupEnvironmentFileDrop(handleLocalEnvFile, placeModel);
 
 	// Upload button file input
 	document.getElementById('environment_file_input').addEventListener('change', (e) => {
