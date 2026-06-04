@@ -1,6 +1,10 @@
 // IMPORTS
 import * as THREE from "three";
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import * as MESSAGE from '../common/message.js';
 import * as BASE from "../common/base.js";
 import * as SCENE_CONFIGURATION from "../common/scene-configuration.js";
@@ -12,6 +16,7 @@ import * as MISC from "../common/misc.js";
 
 var scene, renderer, camera, diffuseSphere, glossySphere, metallicSphere, controls;
 var shadowLight, shadowGround;
+var composer;
 var shadowLightHelper, shadowCameraHelper;
 
 /**
@@ -202,6 +207,21 @@ function initializeScene(){
 	// Set up renderer
 	document.querySelector('#renderer_target').appendChild( renderer.domElement );
 	THREE_ACTIONS.resizeRenderingArea(camera,renderer);
+
+	// Post-processing: GTAO (ground-truth ambient occlusion) adds soft contact shadowing in
+	// crevices and where objects meet, complementing the directional IBL shadow.
+	composer = new EffectComposer(renderer);
+	composer.addPass(new RenderPass(scene,camera));
+
+	var gtaoPass = new GTAOPass(scene,camera,window.innerWidth,window.innerHeight);
+	gtaoPass.output = GTAOPass.OUTPUT.Default;
+	composer.addPass(gtaoPass);
+
+	composer.addPass(new OutputPass());
+
+	// Keep the composer in sync with the render area.
+	window.addEventListener('resize', (e) => { composer.setSize(window.innerWidth,window.innerHeight); }, false);
+	composer.setSize(window.innerWidth,window.innerHeight);
 }
 
 function animate() {
@@ -209,7 +229,7 @@ function animate() {
 	controls.update();
 	if(shadowLightHelper){ shadowLightHelper.update(); }
 	if(shadowCameraHelper){ shadowCameraHelper.update(); }
-    renderer.render( scene, camera );
+    composer.render();
 }
 
 BASE.start(initializeScene,preprocessSceneConfiguration,updateScene,animate);
