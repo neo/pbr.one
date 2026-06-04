@@ -11,6 +11,7 @@ import * as MISC from "../common/misc.js";
 // VARIABLES AND CONSTANTS
 
 var scene, renderer, camera, diffuseSphere, glossySphere, metallicSphere, controls;
+
 var shadowLight, shadowGround;
 var shadowLightHelper, shadowCameraHelper;
 
@@ -45,6 +46,21 @@ function updateShadowLightFromEnvironment(texture){
 	if(shadowCameraHelper){ shadowCameraHelper.update(); }
 }
 
+var isRecording = false;
+var mediaRecorder = null;
+var recordedChunks = [];
+var recordingFrameCount = 0;
+var recordingTotalFrames = 0;
+var autoPanWasOff = false;
+var recordingStartExposure = 0;
+var recordedVideoBlob = null;
+var currentEnvBasename = 'recording';
+
+function reset() {
+	controls.reset();
+	window.PBR1_CHANGE({'environment_exposure': 0});
+}
+
 function preprocessSceneConfiguration(sceneConfiguration){
 
 	// More URLs than names
@@ -73,12 +89,17 @@ function updateScene(oldSceneConfiguration,newSceneConfiguration){
 	// Show spheres
 	scene.visible = Boolean(parseInt(newSceneConfiguration["spheres_enable"]));
 
+	// Auto pan
+	controls.autoRotate = Boolean(parseInt(newSceneConfiguration["auto_pan_enable"]));
+
 	// Set Environment
 	if(newSceneConfiguration.environment_url.length > 0){
 		if( !SCENE_CONFIGURATION.equalAtKey(oldSceneConfiguration,newSceneConfiguration,"environment_index") || 
 			!SCENE_CONFIGURATION.equalAtKey(oldSceneConfiguration,newSceneConfiguration,"environment_url")){
 			var envFileUrl = newSceneConfiguration.environment_url[newSceneConfiguration.environment_index];
+			currentEnvBasename = envFileUrl.split('/').pop().replace(/\.[^.]+$/, '');
 			THREE_ACTIONS.updateSceneEnvironment(envFileUrl,scene,renderer,updateShadowLightFromEnvironment);
+			reset();
 		}
 	}
 
@@ -100,7 +121,9 @@ function initializeScene(){
 		"environment_name": [],
 		"environment_index":0,
 
-		"spheres_accent_color": "116DD5" 
+		"spheres_accent_color": "116DD5",
+
+		"auto_pan_enable": 0
 	
 	});
 
@@ -109,7 +132,7 @@ function initializeScene(){
 
 	// camera
 	camera = new THREE.PerspectiveCamera( 80, window.innerWidth / window.innerHeight, 0.1, 1000 );
-	camera.position.x = 2;
+	camera.position.x = -2;
 	camera.position.y = 1;
 
 	// preview objects
@@ -172,7 +195,7 @@ function initializeScene(){
 	scene.add(shadowGround);
 
 	// renderer
-	renderer = new THREE.WebGLRenderer();
+	renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 	renderer.outputEncoding = CONSTANTS.encoding.sRGB;
 	renderer.shadowMap.enabled = true;
 	renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -185,6 +208,7 @@ function initializeScene(){
 	controls.minDistance = controls.maxDistance = 2;
 	controls.enablePan = false;
 	controls.enableDamping = true;
+	controls.autoRotateSpeed = 12.0;
 	controls.listenToKeyEvents(window);
 
 	// Window resizing
@@ -197,11 +221,211 @@ function initializeScene(){
 		camera.fov = Math.min(Math.max(camera.fov + event.deltaY/50, 1), 150);
 		camera.updateProjectionMatrix();
 	}
-	document.addEventListener( 'mousewheel', (e) =>{zoomHandler(e,camera)});
+
+	// Exposure control via mouse wheel and zoom
+	var exposureStep = 0.25;
+	var exposureMin = -16;
+	var exposureMax = 16;
+
+	window.addEventListener('wheel', (e) => {
+		var scrollExposure = document.getElementById('exposure_scroll_enable').checked;
+		if(scrollExposure){
+			e.preventDefault();
+			var current = parseFloat(SCENE_CONFIGURATION.getConfiguration()["environment_exposure"]);
+			var delta = e.deltaY > 0 ? -exposureStep : exposureStep;
+			var newVal = Math.min(exposureMax, Math.max(exposureMin, current + delta));
+			window.PBR1_CHANGE({'environment_exposure': newVal});
+		}else{
+			zoomHandler(e,camera);
+		}
+	}, {passive: false});
+
+	// Exposure control via arrow keys
+	window.addEventListener('keydown', (e) => {
+		if(!document.getElementById('exposure_keys_enable').checked) return;
+		if(e.key === 'ArrowUp' || e.key === 'ArrowRight'){
+			e.preventDefault();
+			var current = parseFloat(SCENE_CONFIGURATION.getConfiguration()["environment_exposure"]);
+			var newVal = Math.min(exposureMax, current + exposureStep);
+			window.PBR1_CHANGE({'environment_exposure': newVal});
+		}else if(e.key === 'ArrowDown' || e.key === 'ArrowLeft'){
+			e.preventDefault();
+			var current = parseFloat(SCENE_CONFIGURATION.getConfiguration()["environment_exposure"]);
+			var newVal = Math.max(exposureMin, current - exposureStep);
+			window.PBR1_CHANGE({'environment_exposure': newVal});
+		}
+	});
 
 	// Set up renderer
 	document.querySelector('#renderer_target').appendChild( renderer.domElement );
 	THREE_ACTIONS.resizeRenderingArea(camera,renderer);
+
+	// Drag-and-drop local environment file
+	var handleLocalEnvFile = function(texture) {
+		var gen = new THREE.PMREMGenerator(renderer);
+		var envMap = gen.fromEquirectangular(texture).texture;
+		scene.environment = envMap;
+		scene.background = envMap;
+		texture.dispose();
+		gen.dispose();
+		reset();
+	};
+
+	THREE_ACTIONS.setupEnvironmentFileDrop(handleLocalEnvFile);
+
+	// Upload button file input
+	document.getElementById('environment_file_input').addEventListener('change', (e) => {
+		var file = e.target.files[0];
+		if(file) {
+			currentEnvBasename = file.name.replace(/\.[^.]+$/, '');
+			THREE_ACTIONS.loadEnvironmentFromFile(file, handleLocalEnvFile);
+		}
+		e.target.value = '';
+	});
+
+	// Track env basename from drag-and-drop
+	window.addEventListener('drop', (e) => {
+		var file = e.dataTransfer && e.dataTransfer.files[0];
+		if(file) {
+			var ext = file.name.split('.').pop().toLowerCase();
+			if(ext === 'exr' || ext === 'hdr') {
+				currentEnvBasename = file.name.replace(/\.[^.]+$/, '');
+			}
+		}
+	});
+
+	// Record video
+	document.getElementById('record_video_btn').addEventListener('click', toggleRecording);
+	document.getElementById('video_preview_close').addEventListener('click', closeVideoPreview);
+	document.getElementById('download_video_btn').addEventListener('click', downloadVideo);
+// Take photo
+	document.getElementById('take_photo_btn').addEventListener('click', takePhoto);
+}
+
+function takePhoto() {
+	var formatter = new Intl.NumberFormat('en-US', { signDisplay: 'always', minimumFractionDigits: 1 });
+	renderer.domElement.toBlob((blob) => {
+		var a = document.createElement('a');
+		a.href = URL.createObjectURL(blob);
+		var ev = parseFloat(SCENE_CONFIGURATION.getConfiguration()["environment_exposure"])
+		a.download = currentEnvBasename + '-ev' + formatter.format(ev) + '.png';
+		a.click();
+		URL.revokeObjectURL(a.href);
+	})
+}
+
+function toggleRecording() {
+	if (isRecording) {
+		stopRecording();
+		return;
+	}
+
+
+	// Enable auto pan if not already on
+	autoPanWasOff = !controls.autoRotate;
+	if (autoPanWasOff) {
+		window.PBR1_CHANGE({'auto_pan_enable': 1});
+		document.getElementById('auto_pan_enable').checked = true;
+	}
+
+	isRecording = true;
+	recordedChunks = [];
+	recordingFrameCount = 0;
+	recordingTotalFrames = Math.round(3600 / controls.autoRotateSpeed) + 3;
+	recordingStartExposure = parseFloat(SCENE_CONFIGURATION.getConfiguration()["environment_exposure"]);
+	controls.enableDamping = false;
+
+	// Show progress bar
+	var progressBar = document.getElementById('record_progress_bar');
+	progressBar.style.display = 'block';
+	progressBar.style.setProperty('--record-progress', '0%');
+
+	// Hide any existing preview
+	document.getElementById('video_preview_container').style.display = 'none';
+
+	// Start MediaRecorder
+	var stream = renderer.domElement.captureStream();
+	mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=av1' });
+
+	mediaRecorder.ondataavailable = function(e) {
+		if (e.data.size > 0) recordedChunks.push(e.data);
+	};
+
+	mediaRecorder.onstop = function() {
+		recordedVideoBlob = new Blob(recordedChunks, { type: 'video/webm' });
+		var url = URL.createObjectURL(recordedVideoBlob);
+		var container = document.getElementById('video_preview_container');
+		var video = document.getElementById('video_preview');
+		video.src = url;
+		container.style.display = 'block';
+	};
+
+	mediaRecorder.start();
+
+	document.getElementById('record_video_btn').textContent = 'Stop Recording';
+}
+
+function stopRecording() {
+	isRecording = false;
+	controls.enableDamping = true;
+	if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+		mediaRecorder.stop();
+	}
+	document.getElementById('record_progress_bar').style.display = 'none';
+	document.getElementById('record_video_btn').textContent = 'Record Video';
+
+	// Restore original exposure
+	if (recordingStartExposure !== 0) {
+		window.PBR1_CHANGE({'environment_exposure': recordingStartExposure});
+	}
+
+	// Restore auto pan state
+	if (autoPanWasOff) {
+		window.PBR1_CHANGE({'auto_pan_enable': 0});
+		document.getElementById('auto_pan_enable').checked = false;
+		autoPanWasOff = false;
+	}
+}
+
+function downloadVideo() {
+	if (!recordedVideoBlob) return;
+	var a = document.createElement('a');
+	a.href = URL.createObjectURL(recordedVideoBlob);
+	a.download = currentEnvBasename + '.webm';
+	a.click();
+	URL.revokeObjectURL(a.href);
+}
+
+function closeVideoPreview() {
+	var container = document.getElementById('video_preview_container');
+	var video = document.getElementById('video_preview');
+	if (video.src) URL.revokeObjectURL(video.src);
+	video.removeAttribute('src');
+	container.style.display = 'none';
+	recordedVideoBlob = null;
+}
+
+function updateRecordingProgress() {
+	if (!isRecording) return;
+
+	var progress = Math.min(++recordingFrameCount / recordingTotalFrames, 1);
+	document.getElementById('record_progress_bar').style.setProperty('--record-progress', (progress * 100) + '%');
+
+	// Tween exposure: original -> -1 * original -> original over the full recording
+	if (recordingStartExposure !== 0) {
+		var tweened;
+		if (progress < 0.5) {
+			tweened = recordingStartExposure + (-recordingStartExposure - recordingStartExposure) * (progress * 2);
+		} else {
+			tweened = -recordingStartExposure + (recordingStartExposure - (-recordingStartExposure)) * ((progress - 0.5) * 2);
+		}
+		window.PBR1_CHANGE({'environment_exposure': tweened});
+	}
+
+	// Stop before rendering the duplicate start frame
+	if (recordingFrameCount >= recordingTotalFrames) {
+		stopRecording();
+	}
 }
 
 function animate() {
@@ -210,6 +434,7 @@ function animate() {
 	if(shadowLightHelper){ shadowLightHelper.update(); }
 	if(shadowCameraHelper){ shadowCameraHelper.update(); }
     renderer.render( scene, camera );
+	updateRecordingProgress();
 }
 
 BASE.start(initializeScene,preprocessSceneConfiguration,updateScene,animate);
